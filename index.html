@@ -84,6 +84,11 @@
             border-radius: 5px;
             box-sizing: border-box;
         }
+        .model-helper {
+            font-size: 0.8em;
+            color: #777;
+            margin-left: 5px;
+        }
         .settings-container button {
             width: 100%;
             padding: 10px;
@@ -163,9 +168,10 @@
                 <textarea id="system-instructions-input" placeholder="Enter System Instructions" rows="4">You are a helpful assistant.</textarea>
                 <h4>Select Model</h4>
                 <select id="model-select">
-                    <option value="gpt-4o-mini" selected>gpt-4o-mini</option>
-                    <option value="gpt-4o-large">gpt-4o-large</option>
-                    <option value="gemini-1.5-flash">gemini-1.5-flash</option>
+                    <option value="gpt-4o-mini" selected>gpt-4o-mini <span class="model-helper">(OpenAI)</span></option>
+                    <option value="gpt-4o-large">gpt-4o-large <span class="model-helper">(OpenAI)</span></option>
+                    <option value="gemini-1.5-flash">gemini-1.5-flash <span class="model-helper">(Google)</span></option>
+                    <option value="gemini-2.0-flash-exp">gemini-2.0-flash-exp <span class="model-helper">(Google)</span></option>
                 </select>
                 <button onclick="saveSettings()">Save Settings</button>
             </div>
@@ -232,37 +238,46 @@
         const message = userInput.value.trim();
         if (message && (apiKey || googleApiKey)) {
             addMessage('User', message);
-            conversationHistory.push({ role: "user", content: message });
+            conversationHistory.push({ role: "user", content: message }); // User message with 'user' role
             userInput.value = '';
 
             try {
                 let response, data;
 
-                if (selectedModel === 'gemini-1.5-flash') {
+                if (selectedModel === 'gemini-1.5-flash' || selectedModel === 'gemini-2.0-flash-exp') {
                     if (!googleApiKey) {
-                        alert('Google API Key is mandatory for the gemini-1.5-flash model');
+                        alert('Google API Key is mandatory for the gemini model');
                         return;
                     }
-                    response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${googleApiKey}`, {
+
+                    // Prepare the request body, excluding system messages
+                    const filteredHistory = conversationHistory.filter(msg => msg.role !== "system");
+                    
+                    response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${googleApiKey}`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
                         },
                         body: JSON.stringify({
-                            contents: [
-                                { role: "user", parts: [{ text: message }] }
-                            ]
+                            contents: filteredHistory.map(msg => ({
+                                role: msg.role === "assistant" ? "model" : msg.role,
+                                parts: [{ text: msg.content }]
+                            }))
                         })
                     });
+
                     data = await response.json();
-                    const botMessage = data.candidates[0].content.parts[0].text.trim();
-                    addMessage('Ashish', botMessage);
-                    conversationHistory.push({ role: "assistant", content: botMessage });
-                } else {
-                    if (!apiKey) {
-                        alert('OpenAI API Key is mandatory for the selected model');
-                        return;
+                    console.log('Gemini API Response:', data); // Display the raw response for debugging
+
+                    if (data.candidates && data.candidates.length > 0 && data.candidates[0].content) {
+                        const botMessage = data.candidates[0].content.parts[0].text.trim();
+                        addMessage('Ashish', botMessage);
+                        conversationHistory.push({ role: "model", content: botMessage }); // Add model response
+                    } else {
+                        addMessage('Ashish', 'Sorry, no response from the model.');
                     }
+                } else {
+                    // Logic for OpenAI API
                     response = await fetch('https://api.openai.com/v1/chat/completions', {
                         method: 'POST',
                         headers: {
@@ -275,14 +290,15 @@
                             max_tokens: 1000
                         })
                     });
+                    
                     data = await response.json();
                     const botMessage = data.choices[0].message.content.trim();
                     addMessage('Ashish', botMessage);
-                    conversationHistory.push({ role: "assistant", content: botMessage });
+                    conversationHistory.push({ role: "assistant", content: botMessage }); // Push OpenAI response
                 }
             } catch (error) {
                 console.error('Error:', error);
-                addMessage('Ashish', 'Sorry, something went wrong.');
+                addMessage('Ashish', 'Sorry, something went wrong.'); // General error handling
             }
         } else {
             alert('API Key and Google API Key are mandatory for their respective models');
