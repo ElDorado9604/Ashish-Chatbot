@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Chatbot</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        .container {
+            display: flex;
+            width: 100%;
+            max-width: 800px;
+            height: 100%;
+            max-height: 600px;
+            background-color: #fff;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .chat-container {
+            flex: 2;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid #ddd;
+        }
+        .chat-header {
+            background-color: #007bff;
+            color: #fff;
+            padding: 10px;
+            text-align: center;
+        }
+        .chat-messages {
+            padding: 10px;
+            flex: 1;
+            overflow-y: auto;
+            border-bottom: 1px solid #ddd;
+        }
+        .chat-input {
+            display: flex;
+            padding: 10px;
+        }
+        .chat-input input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .chat-input button {
+            padding: 10px;
+            border: none;
+            background-color: #007bff;
+            color: #fff;
+            border-radius: 4px;
+            margin-left: 10px;
+            cursor: pointer;
+        }
+        .settings-container {
+            flex: 1;
+            padding: 10px;
+            overflow-y: auto;
+        }
+        .settings-container h3 {
+            margin-top: 0;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .settings-container input, .settings-container textarea {
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .settings-container button {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            background-color: #28a745;
+            color: #fff;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .collapsible-content {
+            display: block;
+        }
+        .message-user {
+            background-color: #cce5ff;
+            color: #004085;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+        }
+        .message-assistant {
+            background-color: #d4edda;
+            color: #155724;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+        }
+        .icon {
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="chat-container">
+            <div class="chat-header">Ashish</div>
+            <div class="chat-messages" id="chat-messages"></div>
+            <div class="chat-input">
+                <input type="text" id="user-input" placeholder="Type a message...">
+                <button onclick="sendMessage()">Send</button>
+            </div>
+        </div>
+        <div class="settings-container">
+            <h3 onclick="toggleCollapse('api-key-section')">API Key <span class="icon">▼</span></h3>
+            <div id="api-key-section" class="collapsible-content">
+                <input type="password" id="api-key-input" placeholder="Enter API Key">
+            </div>
+            <h3 onclick="toggleCollapse('system-instructions-section')">System Instructions <span class="icon">▼</span></h3>
+            <div id="system-instructions-section" class="collapsible-content">
+                <textarea id="system-instructions-input" placeholder="Enter System Instructions" rows="4">You are a helpful assistant.</textarea>
+            </div>
+            <button onclick="saveSettings()">Save Settings</button>
+        </div>
+    </div>
+
+    <script>
+        const chatMessages = document.getElementById('chat-messages');
+        const userInput = document.getElementById('user-input');
+        let apiKey = '';
+        let systemInstructions = 'You are a helpful assistant.';
+        let conversationHistory = [
+            { role: "system", content: systemInstructions }
+        ];
+
+        function addMessage(sender, message) {
+            const messageElement = document.createElement('div');
+            messageElement.innerHTML = `<strong>${sender}</strong>: ${message}`;
+            messageElement.classList.add(sender === 'User' ? 'message-user' : 'message-assistant');
+            chatMessages.appendChild(messageElement);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function saveSettings() {
+            apiKey = document.getElementById('api-key-input').value.trim();
+            systemInstructions = document.getElementById('system-instructions-input').value.trim();
+            conversationHistory = [{ role: "system", content: systemInstructions }];
+            alert('Settings saved successfully!');
+        }
+
+        function toggleCollapse(id) {
+            const section = document.getElementById(id);
+            section.style.display = section.style.display === 'none' ? 'block' : 'none';
+            const icon = section.previousElementSibling.querySelector('.icon');
+            icon.textContent = icon.textContent === '▼' ? '▲' : '▼';
+        }
+
+        // Initialize the collapsible sections to hidden
+        document.addEventListener("DOMContentLoaded", function() {
+            document.getElementById('api-key-section').style.display = 'none';
+            document.getElementById('system-instructions-section').style.display = 'none';
+        });
+
+        async function sendMessage() {
+            const message = userInput.value.trim();
+            if (message && apiKey) {
+                addMessage('User', message);
+                conversationHistory.push({ role: "user", content: message });
+                userInput.value = '';
+
+                try {
+                    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + apiKey // Use the user-provided API key
+                        },
+                        body: JSON.stringify({
+                            model: 'gpt-4o-mini',
+                            messages: conversationHistory,
+                            max_tokens: 50
+                        })
+                    });
+                    const data = await response.json();
+                    const botMessage = data.choices[0].message.content.trim();
+                    addMessage('Ashish', botMessage);
+                    conversationHistory.push({ role: "assistant", content: botMessage });
+                } catch (error) {
+                    console.error('Error:', error);
+                    addMessage('Ashish', 'Sorry, something went wrong.');
+                }
+            } else {
+                alert('System Instructions and API key are mandatory');
+            }
+        }
+    </script>
+</body>
+</html>
