@@ -14,8 +14,12 @@ function addMessage(sender, message) {
     const messageElement = document.createElement('div');
     messageElement.classList.add(sender === 'User' ? 'message-user' : 'message-assistant');
 
+    // Split message into paragraphs
     const parts = message.split(/```/);
-    messageElement.innerHTML = `<strong>${sender}</strong>: ${parts[0].trim()}`;
+    const paragraphs = parts[0].trim().split('\n').filter(p => p.trim() !== '');
+    const bulletPoints = paragraphs.map(p => `<li>${p.trim()}</li>`).join('');
+
+    messageElement.innerHTML = `<strong>${sender}</strong>:<ul>${bulletPoints}</ul>`;
 
     for (let i = 1; i < parts.length; i += 2) {
         const codeBlock = document.createElement('div');
@@ -37,7 +41,9 @@ function addMessage(sender, message) {
 
         if (i + 1 < parts.length) {
             const textPart = document.createElement('div');
-            textPart.innerHTML = `<strong>${sender}</strong>: ${parts[i + 1].trim()}`;
+            const moreParagraphs = parts[i + 1].trim().split('\n').filter(p => p.trim() !== '');
+            const moreBulletPoints = moreParagraphs.map(p => `<li>${p.trim()}</li>`).join('');
+            textPart.innerHTML = `<strong>${sender}</strong>:<ul>${moreBulletPoints}</ul>`;
             messageElement.appendChild(textPart);
         }
     }
