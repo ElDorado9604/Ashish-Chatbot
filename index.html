@@ -191,34 +191,45 @@
         { role: "system", content: systemInstructions }
     ];
 
+
     function addMessage(sender, message) {
-        const messageElement = document.createElement('div');
-        messageElement.classList.add(sender === 'User' ? 'message-user' : 'message-assistant');
-        
-        if (message.includes('```')) {
-            const codeBlock = document.createElement('div');
-            codeBlock.classList.add('code-block');
-            const codeContent = message.split('```')[1].trim();
-            codeBlock.innerText = codeContent.replace(/\n/g, '\n');
+    const messageElement = document.createElement('div');
+    messageElement.classList.add(sender === 'User' ? 'message-user' : 'message-assistant');
 
-            const copyButton = document.createElement('button');
-            copyButton.classList.add('copy-button');
-            copyButton.innerText = 'Copy Code';
-            copyButton.onclick = () => {
-                navigator.clipboard.writeText(codeContent).then(() => {
-                    alert('Code copied to clipboard!');
-                });
-            };
+    const parts = message.split(/```/);
+    messageElement.innerHTML = `<strong>${sender}</strong>: ${parts[0].trim()}`;
 
-            messageElement.appendChild(codeBlock);
-            messageElement.appendChild(copyButton);
-        } else {
-            messageElement.innerHTML = `<strong>${sender}</strong>: ${message}`;
+    for (let i = 1; i < parts.length; i += 2) {
+        const codeBlock = document.createElement('div');
+        codeBlock.classList.add('code-block');
+        const codeContent = parts[i].trim();
+        codeBlock.innerText = codeContent;
+
+        const copyButton = document.createElement('button');
+        copyButton.classList.add('copy-button');
+        copyButton.innerText = 'Copy Code';
+        copyButton.onclick = () => {
+            navigator.clipboard.writeText(codeContent).then(() => {
+                alert('Code copied to clipboard!');
+            });
+        };
+
+        messageElement.appendChild(codeBlock);
+        messageElement.appendChild(copyButton);
+
+        if (i + 1 < parts.length) {
+            const textPart = document.createElement('div');
+            textPart.innerHTML = `<strong>${sender}</strong>: ${parts[i + 1].trim()}`;
+            messageElement.appendChild(textPart);
         }
-
-        chatMessages.appendChild(messageElement);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
     }
+
+    chatMessages.appendChild(messageElement);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+
+
 
     function saveSettings() {
         apiKey = document.getElementById('api-key-input').value.trim();
