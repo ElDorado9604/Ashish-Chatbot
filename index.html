@@ -179,20 +179,62 @@
     </div>
 
 <script>
-    const chatMessages = document.getElementById('chat-messages');
-    const userInput = document.getElementById('user-input');
-    const chatContainer = document.getElementById('chat-container');
-    const settingsPanel = document.getElementById('settings-panel');
-    let apiKey = '';
-    let googleApiKey = '';
-    let systemInstructions = 'You are a helpful assistant.';
-    let selectedModel = 'gpt-4o-mini';
-    let conversationHistory = [
-        { role: "system", content: systemInstructions }
-    ];
+const chatMessages = document.getElementById('chat-messages');
+const userInput = document.getElementById('user-input');
+const chatContainer = document.getElementById('chat-container');
+const settingsPanel = document.getElementById('settings-panel');
+let apiKey = '';
+let googleApiKey = '';
+let systemInstructions = 'You are a helpful assistant.';
+let selectedModel = 'gpt-4o-mini';
+let conversationHistory = [
+    { role: "system", content: systemInstructions }
+];
 
+// Load saved settings from localStorage
+function loadSettings() {
+    const savedApiKey = localStorage.getItem('apiKey');
+    const savedGoogleApiKey = localStorage.getItem('googleApiKey');
+    const savedSystemInstructions = localStorage.getItem('systemInstructions');
+    const savedSelectedModel = localStorage.getItem('selectedModel');
 
-    function addMessage(sender, message) {
+    if (savedApiKey) apiKey = savedApiKey;
+    if (savedGoogleApiKey) googleApiKey = savedGoogleApiKey;
+    if (savedSystemInstructions) systemInstructions = savedSystemInstructions;
+    if (savedSelectedModel) selectedModel = savedSelectedModel;
+
+    // Set values in the settings panel input fields
+    document.getElementById('api-key-input').value = apiKey;
+    document.getElementById('google-api-key-input').value = googleApiKey;
+    document.getElementById('system-instructions-input').value = systemInstructions;
+    document.getElementById('model-select').value = selectedModel;
+}
+
+// Save settings to localStorage
+function saveSettings() {
+    apiKey = document.getElementById('api-key-input').value.trim();
+    googleApiKey = document.getElementById('google-api-key-input').value.trim();
+    systemInstructions = document.getElementById('system-instructions-input').value.trim();
+    selectedModel = document.getElementById('model-select').value;
+    conversationHistory = [{ role: "system", content: systemInstructions }];
+
+    // Save settings to localStorage
+    localStorage.setItem('apiKey', apiKey);
+    localStorage.setItem('googleApiKey', googleApiKey);
+    localStorage.setItem('systemInstructions', systemInstructions);
+    localStorage.setItem('selectedModel', selectedModel);
+
+    alert('Settings saved successfully!');
+}
+
+// Toggle settings panel visibility
+function toggleSettings() {
+    settingsPanel.classList.toggle('show');
+    chatContainer.classList.toggle('settings-open');
+}
+
+// Add message to chat
+function addMessage(sender, message) {
     const messageElement = document.createElement('div');
     messageElement.classList.add(sender === 'User' ? 'message-user' : 'message-assistant');
 
@@ -228,93 +270,81 @@
     chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
+// Send message function
+async function sendMessage() {
+    const message = userInput.value.trim();
+    if (message && (apiKey || googleApiKey)) {
+        addMessage('User', message);
+        conversationHistory.push({ role: "user", content: message }); // User message with 'user' role
+        userInput.value = '';
 
+        try {
+            let response, data;
 
-
-    function saveSettings() {
-        apiKey = document.getElementById('api-key-input').value.trim();
-        googleApiKey = document.getElementById('google-api-key-input').value.trim();
-        systemInstructions = document.getElementById('system-instructions-input').value.trim();
-        selectedModel = document.getElementById('model-select').value;
-        conversationHistory = [{ role: "system", content: systemInstructions }];
-        alert('Settings saved successfully!');
-    }
-
-    function toggleSettings() {
-        settingsPanel.classList.toggle('show');
-        chatContainer.classList.toggle('settings-open');
-    }
-
-    async function sendMessage() {
-        const message = userInput.value.trim();
-        if (message && (apiKey || googleApiKey)) {
-            addMessage('User', message);
-            conversationHistory.push({ role: "user", content: message }); // User message with 'user' role
-            userInput.value = '';
-
-            try {
-                let response, data;
-
-                if (selectedModel === 'gemini-1.5-flash' || selectedModel === 'gemini-2.0-flash-exp') {
-                    if (!googleApiKey) {
-                        alert('Google API Key is mandatory for the gemini model');
-                        return;
-                    }
-
-                    // Prepare the request body, excluding system messages
-                    const filteredHistory = conversationHistory.filter(msg => msg.role !== "system");
-                    
-                    response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${googleApiKey}`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            contents: filteredHistory.map(msg => ({
-                                role: msg.role === "assistant" ? "model" : msg.role,
-                                parts: [{ text: msg.content }]
-                            }))
-                        })
-                    });
-
-                    data = await response.json();
-                    console.log('Gemini API Response:', data); // Display the raw response for debugging
-
-                    if (data.candidates && data.candidates.length > 0 && data.candidates[0].content) {
-                        const botMessage = data.candidates[0].content.parts[0].text.trim();
-                        addMessage('Ashish', botMessage);
-                        conversationHistory.push({ role: "model", content: botMessage }); // Add model response
-                    } else {
-                        addMessage('Ashish', 'Sorry, no response from the model.');
-                    }
-                } else {
-                    // Logic for OpenAI API
-                    response = await fetch('https://api.openai.com/v1/chat/completions', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': 'Bearer ' + apiKey
-                        },
-                        body: JSON.stringify({
-                            model: selectedModel,
-                            messages: conversationHistory,
-                            max_tokens: 1000
-                        })
-                    });
-                    
-                    data = await response.json();
-                    const botMessage = data.choices[0].message.content.trim();
-                    addMessage('Ashish', botMessage);
-                    conversationHistory.push({ role: "assistant", content: botMessage }); // Push OpenAI response
+            if (selectedModel === 'gemini-1.5-flash' || selectedModel === 'gemini-2.0-flash-exp') {
+                if (!googleApiKey) {
+                    alert('Google API Key is mandatory for the gemini model');
+                    return;
                 }
-            } catch (error) {
-                console.error('Error:', error);
-                addMessage('Ashish', 'Sorry, something went wrong.'); // General error handling
+
+                // Prepare the request body, excluding system messages
+                const filteredHistory = conversationHistory.filter(msg => msg.role !== "system");
+                
+                response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${googleApiKey}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        contents: filteredHistory.map(msg => ({
+                            role: msg.role === "assistant" ? "model" : msg.role,
+                            parts: [{ text: msg.content }]
+                        }))
+                    })
+                });
+
+                data = await response.json();
+                console.log('Gemini API Response:', data); // Display the raw response for debugging
+
+                if (data.candidates && data.candidates.length > 0 && data.candidates[0].content) {
+                    const botMessage = data.candidates[0].content.parts[0].text.trim();
+                    addMessage('Ashish', botMessage);
+                    conversationHistory.push({ role: "model", content: botMessage }); // Add model response
+                } else {
+                    addMessage('Ashish', 'Sorry, no response from the model.');
+                }
+            } else {
+                // Logic for OpenAI API
+                response = await fetch('https://api.openai.com/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + apiKey
+                    },
+                    body: JSON.stringify({
+                        model: selectedModel,
+                        messages: conversationHistory,
+                        max_tokens: 1000
+                    })
+                });
+                
+                data = await response.json();
+                const botMessage = data.choices[0].message.content.trim();
+                addMessage('Ashish', botMessage);
+                conversationHistory.push({ role: "assistant", content: botMessage }); // Push OpenAI response
             }
-        } else {
-            alert('API Key and Google API Key are mandatory for their respective models');
+        } catch (error) {
+            console.error('Error:', error);
+            addMessage('Ashish', 'Sorry, something went wrong.'); // General error handling
         }
+    } else {
+        alert('API Key and Google API Key are mandatory for their respective models');
     }
+}
+
+// Load settings when the page loads
+window.onload = loadSettings;
+   
 </script>
 </body>
 </html>
